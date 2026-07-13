@@ -29,6 +29,7 @@
   }
 }
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 body {
   margin: 0;
   font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -256,6 +257,41 @@ input[type="range"] { width: 100%; accent-color: var(--orange); }
 .drill-meta { display: flex; gap: 1.5rem; flex-wrap: wrap; font-size: 0.85rem; color: var(--text-muted); }
 .drill-meta strong { color: var(--text); }
 
+.record-section {
+  margin-top: 2rem;
+  padding-top: 1.75rem;
+  border-top: 1px solid var(--border);
+}
+.record-section h3 { margin: 0 0 0.3rem; font-size: 1.1rem; }
+.api-key-row { max-width: 420px; margin-bottom: 1.25rem; }
+.api-key-row input { margin-top: 0.3rem; }
+.camera-area { margin-bottom: 1rem; }
+.camera-video {
+  width: 100%;
+  max-width: 480px;
+  background: #000;
+  border-radius: var(--radius);
+  display: block;
+}
+.record-status { font-size: 0.9rem; color: var(--orange-dark); font-weight: 600; margin: 0.6rem 0; min-height: 1.2em; }
+.feedback-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--navy-light);
+  border-radius: var(--radius);
+  padding: 1.25rem 1.5rem;
+  margin-top: 1rem;
+  box-shadow: var(--shadow);
+  line-height: 1.55;
+}
+.feedback-card p { margin: 0.5rem 0; }
+.feedback-card ul { margin: 0.3rem 0 0.9rem; padding-left: 1.3rem; }
+.feedback-card li { margin: 0.2rem 0; }
+.error-text { color: #b3261e; font-size: 0.9rem; margin-top: 0.75rem; }
+@media (prefers-color-scheme: dark) {
+  .error-text { color: #f29a95; }
+}
+
 .site-footer { text-align: center; padding: 1.5rem; color: var(--text-muted); font-size: 0.85rem; }
 </style>
 </head>
@@ -339,6 +375,32 @@ input[type="range"] { width: 100%; accent-color: var(--orange); }
       <div id="drill-card-holder"></div>
       <div class="btn-row">
         <button class="btn secondary" id="another-drill-btn" type="button">Give me another drill</button>
+      </div>
+
+      <div class="record-section">
+        <h3>🎥 Record yourself &amp; get AI feedback</h3>
+        <p class="section-sub">Record a short clip of yourself doing this drill and Claude will tell you what looks good and what to adjust.</p>
+
+        <div class="api-key-row">
+          <label class="field-label" for="api-key-input">Anthropic API key</label>
+          <input type="password" id="api-key-input" placeholder="sk-ant-..." autocomplete="off" />
+          <p class="hint-text" style="margin-top:0.4rem;">Stored only in this browser and sent directly to Anthropic when you request feedback. Get a key at platform.claude.com/settings/keys. Each review uses a small amount of API credit.</p>
+        </div>
+
+        <div class="camera-area">
+          <video id="camera-preview" class="camera-video" autoplay muted playsinline hidden></video>
+          <video id="playback-video" class="camera-video" controls hidden></video>
+          <div id="record-status" class="record-status"></div>
+          <div class="btn-row">
+            <button class="btn secondary" id="start-camera-btn" type="button">Enable Camera</button>
+            <button class="btn" id="start-record-btn" type="button" hidden>&#9679; Start Recording</button>
+            <button class="btn secondary" id="stop-record-btn" type="button" hidden>Stop Recording</button>
+            <button class="btn secondary" id="retake-btn" type="button" hidden>Retake</button>
+            <button class="btn" id="get-feedback-btn" type="button" hidden>Get AI Feedback</button>
+          </div>
+        </div>
+
+        <div id="feedback-holder"></div>
       </div>
     </section>
   </main>
@@ -438,6 +500,18 @@ let selectedPlayerIndex = null;
 let activeSkillId = null;
 let activeHand = null;  // null | "dominant" | "off"
 let lastDrillIndex = -1;
+let currentDrill = null;
+
+// ---------- Recording / AI feedback state ----------
+const FRAME_COUNT = 4;
+const MAX_RECORD_SECONDS = 20;
+const API_KEY_STORAGE_KEY = "lacrosse_anthropic_api_key";
+let mediaStream = null;
+let mediaRecorder = null;
+let recordedChunks = [];
+let recordedBlob = null;
+let recordTimerInterval = null;
+let recordSeconds = 0;
 
 function positionOf(player) {
   return POSITIONS.find(p => p.id === player.position);
@@ -735,6 +809,8 @@ function renderDrillScreen() {
   }
   lastDrillIndex = idx;
   const drill = skill.drills[idx];
+  currentDrill = drill;
+  resetRecordingUI();
 
   const holder = document.getElementById("drill-card-holder");
   const difficultyClass = `difficulty-${drill.difficulty.toLowerCase()}`;
@@ -763,12 +839,301 @@ function renderDrillScreen() {
 document.getElementById("another-drill-btn").addEventListener("click", renderDrillScreen);
 
 document.getElementById("drill-back-btn").addEventListener("click", () => {
+  resetRecordingUI();
   renderWorkScreen();
   showScreen("work");
 });
 
+// ---------- Recording & AI feedback ----------
+function el(id) { return document.getElementById(id); }
+
+function resetRecordingUI() {
+  if (mediaRecorder && mediaRecorder.state !== "inactive") {
+    try { mediaRecorder.stop(); } catch (e) { /* ignore */ }
+  }
+  if (mediaStream) {
+    mediaStream.getTracks().forEach(t => t.stop());
+  }
+  mediaStream = null;
+  mediaRecorder = null;
+  recordedChunks = [];
+  recordedBlob = null;
+  clearInterval(recordTimerInterval);
+  recordTimerInterval = null;
+  recordSeconds = 0;
+
+  el("camera-preview").srcObject = null;
+  el("camera-preview").hidden = true;
+  el("playback-video").src = "";
+  el("playback-video").hidden = true;
+  el("record-status").textContent = "";
+  el("start-camera-btn").hidden = false;
+  el("start-record-btn").hidden = true;
+  el("stop-record-btn").hidden = true;
+  el("retake-btn").hidden = true;
+  el("get-feedback-btn").hidden = true;
+  el("feedback-holder").innerHTML = "";
+}
+
+function discardClip() {
+  recordedChunks = [];
+  recordedBlob = null;
+  el("playback-video").src = "";
+  el("playback-video").hidden = true;
+  el("camera-preview").hidden = false;
+  el("start-record-btn").hidden = false;
+  el("stop-record-btn").hidden = true;
+  el("retake-btn").hidden = true;
+  el("get-feedback-btn").hidden = true;
+  el("feedback-holder").innerHTML = "";
+  el("record-status").textContent = "";
+}
+
+async function startCamera() {
+  const status = el("record-status");
+  status.textContent = "Requesting camera access…";
+  try {
+    mediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+    el("camera-preview").srcObject = mediaStream;
+    el("camera-preview").hidden = false;
+    el("start-camera-btn").hidden = true;
+    el("start-record-btn").hidden = false;
+    status.textContent = "";
+  } catch (err) {
+    status.textContent = `Couldn't access your camera (${err.message}). Check your browser's camera permissions.`;
+  }
+}
+
+function pickMimeType() {
+  const candidates = ["video/webm;codecs=vp9", "video/webm;codecs=vp8", "video/webm", "video/mp4"];
+  if (!window.MediaRecorder) return "";
+  return candidates.find(c => MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(c)) || "";
+}
+
+function updateRecordStatus() {
+  el("record-status").textContent = `● Recording… ${recordSeconds}s / ${MAX_RECORD_SECONDS}s`;
+}
+
+function startRecording() {
+  if (!mediaStream) return;
+  recordedChunks = [];
+  const mimeType = pickMimeType();
+  mediaRecorder = mimeType ? new MediaRecorder(mediaStream, { mimeType }) : new MediaRecorder(mediaStream);
+  mediaRecorder.ondataavailable = (e) => {
+    if (e.data && e.data.size > 0) recordedChunks.push(e.data);
+  };
+  mediaRecorder.onstop = () => {
+    recordedBlob = new Blob(recordedChunks, { type: mediaRecorder.mimeType || "video/webm" });
+    el("camera-preview").hidden = true;
+    const playback = el("playback-video");
+    playback.src = URL.createObjectURL(recordedBlob);
+    playback.hidden = false;
+    el("stop-record-btn").hidden = true;
+    el("retake-btn").hidden = false;
+    el("get-feedback-btn").hidden = false;
+    el("record-status").textContent = "";
+  };
+  mediaRecorder.start();
+  el("start-record-btn").hidden = true;
+  el("stop-record-btn").hidden = false;
+  recordSeconds = 0;
+  updateRecordStatus();
+  recordTimerInterval = setInterval(() => {
+    recordSeconds += 1;
+    updateRecordStatus();
+    if (recordSeconds >= MAX_RECORD_SECONDS) stopRecording();
+  }, 1000);
+}
+
+function stopRecording() {
+  clearInterval(recordTimerInterval);
+  recordTimerInterval = null;
+  if (mediaRecorder && mediaRecorder.state !== "inactive") mediaRecorder.stop();
+}
+
+el("start-camera-btn").addEventListener("click", startCamera);
+el("start-record-btn").addEventListener("click", startRecording);
+el("stop-record-btn").addEventListener("click", stopRecording);
+el("retake-btn").addEventListener("click", discardClip);
+el("get-feedback-btn").addEventListener("click", getAiFeedback);
+
+const apiKeyInput = el("api-key-input");
+apiKeyInput.value = localStorage.getItem(API_KEY_STORAGE_KEY) || "";
+apiKeyInput.addEventListener("input", () => {
+  localStorage.setItem(API_KEY_STORAGE_KEY, apiKeyInput.value.trim());
+});
+
+// Seeks a video element and resolves once the seek completes.
+function seekTo(video, t) {
+  return new Promise(resolve => {
+    const handler = () => { video.removeEventListener("seeked", handler); resolve(); };
+    video.addEventListener("seeked", handler);
+    video.currentTime = t;
+  });
+}
+
+// Chrome sometimes reports Infinity duration for freshly recorded blobs until
+// you seek past the end once; this forces the real duration to resolve.
+function resolveDuration(video) {
+  return new Promise(resolve => {
+    if (isFinite(video.duration) && video.duration > 0) return resolve(video.duration);
+    const handler = () => {
+      if (isFinite(video.duration) && video.duration > 0) {
+        video.removeEventListener("durationchange", handler);
+        video.currentTime = 0;
+        resolve(video.duration);
+      }
+    };
+    video.addEventListener("durationchange", handler);
+    video.currentTime = 1e10;
+  });
+}
+
+function extractFrames(blob, count) {
+  return new Promise((resolve, reject) => {
+    const video = document.createElement("video");
+    video.muted = true;
+    video.src = URL.createObjectURL(blob);
+    video.addEventListener("error", () => reject(new Error("Could not read the recorded video.")));
+    video.addEventListener("loadedmetadata", async () => {
+      try {
+        const duration = await resolveDuration(video);
+        const maxWidth = 480;
+        const scale = video.videoWidth > maxWidth ? maxWidth / video.videoWidth : 1;
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.max(1, Math.round(video.videoWidth * scale));
+        canvas.height = Math.max(1, Math.round(video.videoHeight * scale));
+        const ctx = canvas.getContext("2d");
+        const frames = [];
+        for (let i = 0; i < count; i++) {
+          const t = duration * (i + 1) / (count + 1);
+          await seekTo(video, t);
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          frames.push(canvas.toDataURL("image/jpeg", 0.7).split(",")[1]);
+        }
+        URL.revokeObjectURL(video.src);
+        resolve(frames);
+      } catch (err) {
+        reject(err);
+      }
+    });
+  });
+}
+
+function buildFeedbackPrompt(player, skill, drill, hand) {
+  const pos = positionOf(player);
+  let handNote = "";
+  if (hand === "off") {
+    handNote = ` The player is intentionally using their OFF hand (${otherHand(player.dominantHand) === "right" ? "Right" : "Left"}) for this rep, so weight your feedback toward off-hand mechanics rather than comparing it to their dominant hand.`;
+  } else if (hand === "dominant") {
+    handNote = ` The player is using their dominant hand (${player.dominantHand === "right" ? "Right" : "Left"}) for this rep.`;
+  }
+  return `You are an experienced lacrosse coach reviewing a player's technique from a short practice clip.
+
+Player: ${player.name}, position: ${pos.name}, dominant hand: ${player.dominantHand}.${handNote}
+Skill being worked on: ${skill.name} — ${skill.description}
+Drill: ${drill.name}. Instructions: ${drill.instructions}
+
+Attached are ${FRAME_COUNT} still frames captured at evenly spaced moments during the player's recorded rep of this drill.
+
+Based only on what is visible in these frames (stance, footwork, stick position, hand placement, body posture, etc.), give feedback formatted exactly like this:
+
+**What's working**
+- 2-3 short, specific, encouraging bullet points
+
+**What to work on**
+- 2-3 short, specific, actionable bullet points
+
+Keep it concise and concrete. If the frames don't show enough to judge something, don't guess — leave it out. Don't just repeat the drill instructions back.`;
+}
+
+function escapeHtml(str) {
+  const div = document.createElement("div");
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+function renderFeedbackHtml(text) {
+  const withBold = escapeHtml(text).replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+  const lines = withBold.split("\n");
+  let html = "";
+  let inList = false;
+  lines.forEach(rawLine => {
+    const line = rawLine.trim();
+    if (line.startsWith("- ")) {
+      if (!inList) { html += "<ul>"; inList = true; }
+      html += `<li>${line.slice(2)}</li>`;
+    } else {
+      if (inList) { html += "</ul>"; inList = false; }
+      if (line) html += `<p>${line}</p>`;
+    }
+  });
+  if (inList) html += "</ul>";
+  return `<div class="feedback-card">${html}</div>`;
+}
+
+async function getAiFeedback() {
+  const apiKey = apiKeyInput.value.trim();
+  const feedbackHolder = el("feedback-holder");
+  if (!apiKey) {
+    feedbackHolder.innerHTML = `<p class="error-text">Enter your Anthropic API key above first.</p>`;
+    return;
+  }
+  if (!recordedBlob) {
+    feedbackHolder.innerHTML = `<p class="error-text">Record a clip first.</p>`;
+    return;
+  }
+  localStorage.setItem(API_KEY_STORAGE_KEY, apiKey);
+
+  const getFeedbackBtn = el("get-feedback-btn");
+  getFeedbackBtn.disabled = true;
+  feedbackHolder.innerHTML = `<p class="hint-text">Extracting frames and asking Claude for feedback…</p>`;
+
+  try {
+    const frames = await extractFrames(recordedBlob, FRAME_COUNT);
+    const player = players[selectedPlayerIndex];
+    const skill = SKILLS.find(s => s.id === activeSkillId);
+    const prompt = buildFeedbackPrompt(player, skill, currentDrill, activeHand);
+
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+        "anthropic-dangerous-direct-browser-access": "true",
+      },
+      body: JSON.stringify({
+        model: "claude-sonnet-5",
+        max_tokens: 700,
+        messages: [{
+          role: "user",
+          content: [
+            { type: "text", text: prompt },
+            ...frames.map(data => ({ type: "image", source: { type: "base64", media_type: "image/jpeg", data } })),
+          ],
+        }],
+      }),
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      const msg = (data && data.error && data.error.message) || `Request failed (${response.status})`;
+      feedbackHolder.innerHTML = `<p class="error-text">Couldn't get feedback: ${escapeHtml(msg)}</p>`;
+      return;
+    }
+    const text = (data.content || []).filter(b => b.type === "text").map(b => b.text).join("\n");
+    feedbackHolder.innerHTML = renderFeedbackHtml(text || "Claude didn't return any feedback text.");
+  } catch (err) {
+    feedbackHolder.innerHTML = `<p class="error-text">Couldn't reach Claude: ${escapeHtml(err.message)}</p>`;
+  } finally {
+    getFeedbackBtn.disabled = false;
+  }
+}
+
 // ---------- Start over ----------
 startOverBtn.addEventListener("click", () => {
+  resetRecordingUI();
   playerCount = 1;
   players = [];
   scoringIndex = 0;
