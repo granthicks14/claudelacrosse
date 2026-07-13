@@ -1,0 +1,588 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Lacrosse Drill Finder</title>
+<style>
+:root {
+  --navy: #0b1d33;
+  --navy-light: #16304f;
+  --orange: #ff7a29;
+  --orange-dark: #e8611a;
+  --bg: #f5f7fa;
+  --card-bg: #ffffff;
+  --text: #1c2733;
+  --text-muted: #5a6b7d;
+  --border: #e1e6ec;
+  --radius: 12px;
+  --shadow: 0 2px 8px rgba(11, 29, 51, 0.08);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0e1620;
+    --card-bg: #172231;
+    --text: #eaf0f6;
+    --text-muted: #9aabbd;
+    --border: #263447;
+    --shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+  }
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
+.site-header {
+  background: linear-gradient(135deg, var(--navy), var(--navy-light));
+  color: #fff;
+  padding: 1.75rem 1.5rem;
+}
+.header-inner {
+  max-width: 900px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.header-title { display: flex; align-items: center; gap: 1rem; }
+.logo { font-size: 2.25rem; line-height: 1; }
+.site-header h1 { margin: 0; font-size: 1.5rem; }
+.tagline { margin: 0.2rem 0 0; color: #cdd8e6; font-size: 0.9rem; }
+.start-over-btn {
+  background: rgba(255,255,255,0.1);
+  color: #fff;
+  border: 1px solid rgba(255,255,255,0.35);
+  border-radius: 999px;
+  padding: 0.4rem 0.9rem;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+.start-over-btn:hover { background: rgba(255,255,255,0.2); }
+main { max-width: 900px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
+.screen { display: none; }
+.screen.active { display: block; }
+.card-box {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 1.75rem;
+}
+.section-title { font-size: 1.15rem; margin: 0 0 0.5rem; }
+.section-sub { color: var(--text-muted); margin: 0 0 1.5rem; font-size: 0.9rem; }
+label.field-label { display: block; font-weight: 600; margin-bottom: 0.4rem; font-size: 0.9rem; }
+input[type="number"], input[type="text"] {
+  width: 100%;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 1rem;
+  background: var(--bg);
+  color: var(--text);
+}
+.btn {
+  display: inline-block;
+  border: none;
+  border-radius: 999px;
+  padding: 0.65rem 1.4rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  background: var(--orange);
+  color: #fff;
+  transition: background 0.12s ease;
+}
+.btn:hover { background: var(--orange-dark); }
+.btn.secondary {
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+.btn.secondary:hover { border-color: var(--orange); color: var(--orange-dark); }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-row { display: flex; gap: 0.75rem; margin-top: 1.5rem; flex-wrap: wrap; }
+.progress-note { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem; }
+
+.skill-score-row {
+  display: grid;
+  grid-template-columns: 1.7fr 3fr 2.2rem;
+  align-items: center;
+  gap: 0.9rem;
+  padding: 0.6rem 0;
+  border-bottom: 1px solid var(--border);
+}
+.skill-score-row:last-child { border-bottom: none; }
+.skill-score-name { display: flex; align-items: center; gap: 0.5rem; font-weight: 600; font-size: 0.92rem; }
+.skill-score-value { text-align: right; font-weight: 700; color: var(--orange-dark); }
+input[type="range"] { width: 100%; accent-color: var(--orange); }
+
+.player-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 1rem; }
+.player-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.1rem 1.3rem;
+  text-align: left;
+  cursor: pointer;
+  box-shadow: var(--shadow);
+  font: inherit;
+  color: var(--text);
+}
+.player-card:hover { border-color: var(--orange); }
+.player-card h3 { margin: 0 0 0.35rem; font-size: 1.05rem; }
+.player-card .weak-note { font-size: 0.82rem; color: var(--text-muted); }
+
+.back-button {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.4rem 0.9rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+  color: var(--text);
+  margin-bottom: 1.25rem;
+}
+.back-button:hover { border-color: var(--orange); color: var(--orange-dark); }
+
+.suggestion-box {
+  background: linear-gradient(135deg, var(--navy), var(--navy-light));
+  color: #fff;
+  border-radius: var(--radius);
+  padding: 1.25rem 1.5rem;
+  margin-bottom: 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.suggestion-box p { margin: 0.2rem 0 0; color: #cdd8e6; font-size: 0.88rem; }
+.suggestion-box h3 { margin: 0; font-size: 1.1rem; }
+
+.skill-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 1rem; }
+.skill-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.1rem;
+  text-align: left;
+  cursor: pointer;
+  box-shadow: var(--shadow);
+  color: var(--text);
+  font: inherit;
+}
+.skill-card:hover { border-color: var(--orange); }
+.skill-card .skill-icon { font-size: 1.6rem; display: block; margin-bottom: 0.4rem; }
+.skill-card h4 { margin: 0 0 0.25rem; font-size: 0.98rem; }
+.skill-card .skill-score-tag { font-size: 0.78rem; color: var(--text-muted); }
+
+.drill-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--orange);
+  border-radius: var(--radius);
+  padding: 1.5rem 1.75rem;
+  box-shadow: var(--shadow);
+}
+.drill-card-header { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; flex-wrap: wrap; }
+.drill-card h3 { margin: 0; font-size: 1.25rem; }
+.difficulty { font-size: 0.75rem; font-weight: 600; padding: 0.2rem 0.6rem; border-radius: 999px; white-space: nowrap; }
+.difficulty-beginner { background: #e3f6e8; color: #1e7a3d; }
+.difficulty-intermediate { background: #fff3d9; color: #9a6a00; }
+.difficulty-advanced { background: #fde3e3; color: #b3261e; }
+@media (prefers-color-scheme: dark) {
+  .difficulty-beginner { background: #163a24; color: #7fd99a; }
+  .difficulty-intermediate { background: #3a2f10; color: #f0c565; }
+  .difficulty-advanced { background: #3a1616; color: #f29a95; }
+}
+.drill-summary { margin: 0.6rem 0; color: var(--text-muted); font-style: italic; }
+.drill-instructions { margin: 0.6rem 0 1rem; line-height: 1.55; }
+.drill-meta { display: flex; gap: 1.5rem; flex-wrap: wrap; font-size: 0.85rem; color: var(--text-muted); }
+.drill-meta strong { color: var(--text); }
+
+.site-footer { text-align: center; padding: 1.5rem; color: var(--text-muted); font-size: 0.85rem; }
+</style>
+</head>
+<body>
+  <header class="site-header">
+    <div class="header-inner">
+      <div class="header-title">
+        <span class="logo">🥍</span>
+        <div>
+          <h1>Lacrosse Drill Finder</h1>
+          <p class="tagline">Score your players. Find their drills.</p>
+        </div>
+      </div>
+      <button id="start-over-btn" class="start-over-btn" type="button" hidden>Start Over</button>
+    </div>
+  </header>
+
+  <main>
+    <!-- Screen 1: how many players -->
+    <section id="screen-count" class="screen active">
+      <div class="card-box">
+        <h2 class="section-title">How many players are training today?</h2>
+        <p class="section-sub">Enter the number of players you'll be scoring and finding drills for.</p>
+        <label class="field-label" for="player-count-input">Number of players</label>
+        <input type="number" id="player-count-input" min="1" max="30" value="1" />
+        <div class="btn-row">
+          <button class="btn" id="count-continue-btn" type="button">Continue</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Screen 2: score each player's skills -->
+    <section id="screen-scoring" class="screen">
+      <div class="card-box">
+        <p class="progress-note" id="scoring-progress"></p>
+        <h2 class="section-title" id="scoring-title"></h2>
+        <label class="field-label" for="player-name-input">Player name (optional)</label>
+        <input type="text" id="player-name-input" placeholder="e.g. Jordan" />
+        <div id="skill-score-list" style="margin-top: 1.25rem;"></div>
+        <div class="btn-row">
+          <button class="btn secondary" id="scoring-back-btn" type="button">Previous</button>
+          <button class="btn" id="scoring-next-btn" type="button">Next</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Screen 3: choose a player -->
+    <section id="screen-players" class="screen">
+      <h2 class="section-title">Who are you working with?</h2>
+      <p class="section-sub">Select a player to get a skill suggestion or pick a drill.</p>
+      <div id="player-grid" class="player-grid"></div>
+    </section>
+
+    <!-- Screen 4: choose a skill for the selected player -->
+    <section id="screen-work" class="screen">
+      <button class="back-button" id="work-back-btn" type="button">&larr; All players</button>
+      <div class="suggestion-box">
+        <div>
+          <h3 id="suggestion-skill-name"></h3>
+          <p>Suggested based on <span id="suggestion-player-name"></span>'s lowest score</p>
+        </div>
+        <button class="btn" id="suggestion-drill-btn" type="button">Get a drill for this</button>
+      </div>
+      <h2 class="section-title">Or pick a skill to work on</h2>
+      <p class="section-sub" id="work-sub"></p>
+      <div id="work-skill-grid" class="skill-grid"></div>
+    </section>
+
+    <!-- Screen 5: show a drill -->
+    <section id="screen-drill" class="screen">
+      <button class="back-button" id="drill-back-btn" type="button">&larr; Back to skills</button>
+      <h2 class="section-title" id="drill-title"></h2>
+      <p class="section-sub" id="drill-sub"></p>
+      <div id="drill-card-holder"></div>
+      <div class="btn-row">
+        <button class="btn secondary" id="another-drill-btn" type="button">Give me another drill</button>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <p>Built for players who want purposeful reps.</p>
+  </footer>
+
+<script>
+// ---------- Data ----------
+const SKILLS = [
+  { id: "passing", name: "Passing", icon: "🎯", description: "Accuracy, timing, and power on your feeds and outlet passes.",
+    drills: [
+      { name: "Wall Ball", summary: "The foundational lacrosse drill for stick skills.", instructions: "Stand 5-10 yards from a wall and throw/catch continuously, alternating hands, using quick stick and both overhand/sidearm releases.", duration: "10-15 min", equipment: "Wall, stick, ball", difficulty: "Beginner" },
+      { name: "Partner Passing on the Move", summary: "Builds accuracy while running instead of standing still.", instructions: "Two players jog down the field passing back and forth, leading each other so the catch happens in stride. Increase speed each rep.", duration: "10 min", equipment: "Stick, ball, partner", difficulty: "Beginner" },
+      { name: "Triangle Passing", summary: "Sharpens quick decision-making and off-hand passing.", instructions: "Three players form a triangle 10-15 yards apart. Pass quickly around the triangle, then reverse direction, forcing both strong- and off-hand passes.", duration: "10 min", equipment: "Stick, ball, 2 partners", difficulty: "Intermediate" },
+      { name: "Question Mark Drill", summary: "Simulates a dodger feeding a cutting teammate.", instructions: "One player dodges in a question-mark path toward the goal while a cutter times a run to the crease; the dodger feeds the cutter for a finish.", duration: "10-15 min", equipment: "Stick, ball, goal, 1-2 partners", difficulty: "Advanced" }
+    ]},
+  { id: "catching", name: "Catching", icon: "🤾", description: "Reliable hands on passes thrown on target, off target, and under pressure.",
+    drills: [
+      { name: "Wall Ball", summary: "Repetition builds soft hands and consistent catching form.", instructions: "Same as passing wall ball, but focus on giving with the stick on the catch to absorb the ball's speed instead of letting it bounce out.", duration: "10-15 min", equipment: "Wall, stick, ball", difficulty: "Beginner" },
+      { name: "Bad Pass Drill", summary: "Trains recovery on inaccurate or awkward passes.", instructions: "A partner intentionally throws passes high, low, and wide. The receiver must adjust their stick and body to catch everything cleanly.", duration: "10 min", equipment: "Stick, ball, partner", difficulty: "Intermediate" },
+      { name: "Catch and Look Drill", summary: "Builds the habit of scanning the field immediately after catching.", instructions: "Receive a pass, then immediately locate and call out a coach's hand signal or a teammate's jersey number before making the next move.", duration: "10 min", equipment: "Stick, ball, partner or coach", difficulty: "Intermediate" },
+      { name: "Two-Ball Catching", summary: "Improves reaction time and hand-eye coordination.", instructions: "A feeder alternates quick throws with two balls to a receiver who must catch and return each one rapidly.", duration: "5-10 min", equipment: "2 sticks, 2 balls, partner", difficulty: "Advanced" }
+    ]},
+  { id: "shooting", name: "Shooting", icon: "🥍", description: "Power, accuracy, and quick release from all angles on the crease and perimeter.",
+    drills: [
+      { name: "Quick Stick Shooting", summary: "Develops a fast release with minimal wind-up.", instructions: "A feeder passes to a shooter positioned near the crease, who must catch and shoot in one fluid motion aiming for the corners.", duration: "10 min", equipment: "Stick, balls, goal, feeder", difficulty: "Intermediate" },
+      { name: "Time and Room Shooting", summary: "Builds mechanics and power when unpressured.", instructions: "From 10-12 yards, shoot at each corner of the goal in sequence, focusing on hip rotation and full follow-through.", duration: "10-15 min", equipment: "Stick, balls, goal", difficulty: "Beginner" },
+      { name: "Shooting on the Run", summary: "Simulates game-speed finishing after a dodge or cut.", instructions: "Start at the wing, run toward the goal at full speed while receiving a pass, and shoot in stride without breaking cadence.", duration: "10 min", equipment: "Stick, balls, goal, feeder", difficulty: "Advanced" },
+      { name: "Bounce Shot Drill", summary: "Adds a low, hard-to-save shot to your arsenal.", instructions: "From various angles, practice shooting bounce shots aimed to hit the ground just in front of the crease before rising into the net.", duration: "10 min", equipment: "Stick, balls, goal", difficulty: "Intermediate" }
+    ]},
+  { id: "dodging", name: "Dodging", icon: "⚡", description: "Beating a defender 1-on-1 with change of speed and direction.",
+    drills: [
+      { name: "Split Dodge Reps", summary: "The bread-and-butter dodge for changing direction quickly.", instructions: "Against air or cones, practice planting, switching hands in front of your body, and accelerating away in the new direction.", duration: "10 min", equipment: "Stick, ball, cones (optional)", difficulty: "Beginner" },
+      { name: "Roll Dodge Reps", summary: "Useful for beating a defender who overplays your hands.", instructions: "Approach a defender or cone, plant your outside foot, and pivot your back into the defender while protecting the stick, then explode away.", duration: "10 min", equipment: "Stick, ball, cones (optional)", difficulty: "Intermediate" },
+      { name: "Change of Direction Ladder", summary: "Improves the footwork and burst that make dodges effective.", instructions: "Run agility ladder patterns (in-out, lateral shuffle, icky shuffle) with a stick in hand, then immediately explode 5 yards upfield.", duration: "10 min", equipment: "Agility ladder, stick", difficulty: "Beginner" },
+      { name: "1v1 Live Dodging", summary: "Game-realistic reps against a live defender.", instructions: "Attacker starts at X or the wing and tries to beat a live defender to the goal using any dodge, finishing with a shot.", duration: "10-15 min", equipment: "Stick, ball, goal, defender", difficulty: "Advanced" }
+    ]},
+  { id: "ground-balls", name: "Ground Balls", icon: "🟢", description: "Winning 50/50 balls with proper technique, leverage, and urgency.",
+    drills: [
+      { name: "Bucket Scoop Drill", summary: "Isolates clean scooping technique.", instructions: "Roll the ball out and scoop it while bending your knees (not your back), keeping your stick low and running through the ball.", duration: "10 min", equipment: "Stick, ball", difficulty: "Beginner" },
+      { name: "Box Ground Ball Drill", summary: "Trains reaction speed to a bouncing ball from any direction.", instructions: "Coach rolls or throws the ball into a small box; the player must react, sprint in, scoop, and protect the stick immediately.", duration: "10 min", equipment: "Stick, ball, cones, coach", difficulty: "Intermediate" },
+      { name: "3-Man Ground Ball Scramble", summary: "Simulates the physical battle for a contested ground ball.", instructions: "Three players scramble for one loose ball. Whoever scoops it must protect it and clear away from the other two.", duration: "10 min", equipment: "Stick, ball, 2 partners", difficulty: "Advanced" },
+      { name: "Ground Ball to Outlet", summary: "Connects the scoop to a fast, purposeful transition pass.", instructions: "Scoop a ground ball, take two protective steps, and immediately throw an accurate outlet pass to a moving target.", duration: "10 min", equipment: "Stick, ball, partner", difficulty: "Intermediate" }
+    ]},
+  { id: "defense", name: "Defense", icon: "🛡️", description: "Positioning, footwork, and stick checks to shut down opposing attackers.",
+    drills: [
+      { name: "Approach and Footwork Drill", summary: "Teaches proper closeout angle and body position.", instructions: "Starting a few yards off, approach an attacker under control, breaking down your steps to stay balanced and force them where you want.", duration: "10 min", equipment: "Stick, cones, partner", difficulty: "Beginner" },
+      { name: "Mirror Drill", summary: "Builds lateral quickness and staying in a defensive stance.", instructions: "Partner up; one player moves side to side and backward while the defender mirrors their movement in a low athletic stance, no stick needed.", duration: "5-10 min", equipment: "Partner (no equipment needed)", difficulty: "Beginner" },
+      { name: "Poke and Lift Check Drill", summary: "Sharpens stick check timing without fouling.", instructions: "Attacker cradles while moving; defender practices timed poke checks and lift checks aimed at the top hand, then resets defensive position.", duration: "10 min", equipment: "Stick, ball, partner", difficulty: "Intermediate" },
+      { name: "1v1 Live Defense", summary: "Full-speed test of positioning, footwork, and checks together.", instructions: "Attacker tries to dodge and score from the wing or X; defender uses proper footwork and body positioning to force a low-percentage shot.", duration: "10-15 min", equipment: "Stick, ball, goal, attacker", difficulty: "Advanced" }
+    ]},
+  { id: "face-offs", name: "Face-offs", icon: "🤺", description: "Winning possession at the X with hand speed, leverage, and exit moves.",
+    drills: [
+      { name: "Clamp Technique Drill", summary: "Isolates the core face-off move.", instructions: "From the ready position, practice a quick wrist-snap clamp down onto a stationary ball, focusing on speed over strength.", duration: "10 min", equipment: "Stick, ball", difficulty: "Beginner" },
+      { name: "Rake Technique Drill", summary: "Adds a counter move for when the clamp is contested.", instructions: "Practice raking the ball forward and to the side out of the pile, then immediately releasing your bottom hand to scoop and sprint.", duration: "10 min", equipment: "Stick, ball", difficulty: "Intermediate" },
+      { name: "Whistle Reaction Drill", summary: "Trains explosive first-move reaction time.", instructions: "Set up in the face-off position and have a partner call the whistle at random intervals; react as fast as possible with a clamp or rake.", duration: "10 min", equipment: "Stick, ball, partner", difficulty: "Intermediate" },
+      { name: "Live Exit Moves", summary: "Connects winning the draw to actually controlling the ball.", instructions: "After clamping or raking against a live opponent, practice exit moves (front exit, pull-through) to escape the pile and secure possession.", duration: "10-15 min", equipment: "Stick, ball, opponent", difficulty: "Advanced" }
+    ]},
+  { id: "cradling", name: "Cradling & Stick Protection", icon: "🔒", description: "Keeping possession secure while running, dodging, and absorbing contact.",
+    drills: [
+      { name: "Cradle While Running", summary: "Builds a consistent, ball-secure cradle at speed.", instructions: "Sprint the length of the field cradling with a tight wrist motion, keeping the ball in the pocket at all speeds and directions.", duration: "10 min", equipment: "Stick, ball", difficulty: "Beginner" },
+      { name: "Protect the Stick Drill", summary: "Simulates a defender trying to dislodge the ball.", instructions: "A defender applies light-to-moderate check pressure while the ball carrier cradles and shields the stick with their body and off-hand.", duration: "10 min", equipment: "Stick, ball, defender", difficulty: "Intermediate" },
+      { name: "Figure-8 Cradle", summary: "Improves ball control while weaving through traffic.", instructions: "Weave a figure-8 pattern through a set of cones while cradling, switching hands smoothly as you change direction.", duration: "5-10 min", equipment: "Stick, ball, cones", difficulty: "Beginner" }
+    ]},
+  { id: "agility", name: "Footwork & Agility", icon: "🏃", description: "The speed and body control that make every other skill sharper.",
+    drills: [
+      { name: "Ladder Drills", summary: "Builds fast, precise footwork.", instructions: "Run standard agility ladder patterns (in-out, lateral high knees, icky shuffle), performing each pattern with and without a stick.", duration: "10 min", equipment: "Agility ladder", difficulty: "Beginner" },
+      { name: "Cone Weave Sprint", summary: "Trains change-of-direction speed under control.", instructions: "Set up 5-6 cones in a zigzag; sprint through weaving tightly around each cone, then jog back and repeat.", duration: "10 min", equipment: "Cones", difficulty: "Beginner" },
+      { name: "Reactive Shuffle Drill", summary: "Builds the quick-twitch reactions defenders and dodgers both need.", instructions: "Partner points left/right/back at random; player reacts immediately with a defensive shuffle step in that direction.", duration: "5-10 min", equipment: "Partner (no equipment needed)", difficulty: "Intermediate" }
+    ]},
+  { id: "iq", name: "Field IQ & Communication", icon: "🧠", description: "Reading the game, making smart decisions, and talking to teammates.",
+    drills: [
+      { name: "Small-Sided Games (3v3)", summary: "Forces faster decisions with fewer players to hide behind.", instructions: "Play 3v3 or 4v4 on a small field. Fewer players means more touches, more decisions, and more communication per minute.", duration: "15-20 min", equipment: "Sticks, balls, goal, 5+ players", difficulty: "Intermediate" },
+      { name: "Called-Slide Defensive Drill", summary: "Builds the communication habits that prevent easy goals.", instructions: "Run a 2-man or 3-man defensive slide package where defenders must verbally call and confirm every slide and recovery.", duration: "10-15 min", equipment: "Sticks, balls, goal, 4+ players", difficulty: "Advanced" },
+      { name: "Film Review Walkthrough", summary: "Sharpens off-field understanding of spacing and timing.", instructions: "Watch film (team or pro) of a specific situation (e.g., 6v6 offense) and walk through the correct reads and rotations as a group.", duration: "15-20 min", equipment: "Game film, whiteboard", difficulty: "Intermediate" }
+    ]}
+];
+
+// ---------- State ----------
+let playerCount = 1;
+let players = [];       // { name, scores: { skillId: number } }
+let scoringIndex = 0;
+let selectedPlayerIndex = null;
+let activeSkillId = null;
+let lastDrillIndex = -1;
+
+// ---------- Elements ----------
+const screens = {
+  count: document.getElementById("screen-count"),
+  scoring: document.getElementById("screen-scoring"),
+  players: document.getElementById("screen-players"),
+  work: document.getElementById("screen-work"),
+  drill: document.getElementById("screen-drill"),
+};
+const startOverBtn = document.getElementById("start-over-btn");
+
+function showScreen(name) {
+  Object.values(screens).forEach(s => s.classList.remove("active"));
+  screens[name].classList.add("active");
+  startOverBtn.hidden = name === "count";
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+// ---------- Screen 1: player count ----------
+document.getElementById("count-continue-btn").addEventListener("click", () => {
+  const input = document.getElementById("player-count-input");
+  const n = parseInt(input.value, 10);
+  playerCount = Number.isFinite(n) && n > 0 ? Math.min(n, 30) : 1;
+  players = Array.from({ length: playerCount }, () => ({ name: "", scores: {} }));
+  scoringIndex = 0;
+  renderScoringScreen();
+  showScreen("scoring");
+});
+
+// ---------- Screen 2: scoring ----------
+function renderScoringScreen() {
+  const player = players[scoringIndex];
+  document.getElementById("scoring-progress").textContent = `Player ${scoringIndex + 1} of ${playerCount}`;
+  document.getElementById("scoring-title").textContent = "Rate each skill from 1 (needs work) to 10 (elite)";
+  document.getElementById("player-name-input").value = player.name;
+
+  const list = document.getElementById("skill-score-list");
+  list.innerHTML = "";
+  SKILLS.forEach(skill => {
+    if (player.scores[skill.id] === undefined) player.scores[skill.id] = 5;
+    const row = document.createElement("div");
+    row.className = "skill-score-row";
+    row.innerHTML = `
+      <div class="skill-score-name">${skill.icon} ${skill.name}</div>
+      <input type="range" min="1" max="10" step="1" value="${player.scores[skill.id]}" data-skill="${skill.id}" />
+      <div class="skill-score-value" data-skill-value="${skill.id}">${player.scores[skill.id]}</div>
+    `;
+    list.appendChild(row);
+  });
+  list.querySelectorAll('input[type="range"]').forEach(input => {
+    input.addEventListener("input", () => {
+      const skillId = input.dataset.skill;
+      player.scores[skillId] = parseInt(input.value, 10);
+      list.querySelector(`[data-skill-value="${skillId}"]`).textContent = input.value;
+    });
+  });
+
+  const backBtn = document.getElementById("scoring-back-btn");
+  const nextBtn = document.getElementById("scoring-next-btn");
+  backBtn.disabled = scoringIndex === 0;
+  nextBtn.textContent = scoringIndex === playerCount - 1 ? "Finish Setup" : "Next Player";
+}
+
+document.getElementById("player-name-input").addEventListener("input", (e) => {
+  players[scoringIndex].name = e.target.value;
+});
+
+document.getElementById("scoring-back-btn").addEventListener("click", () => {
+  if (scoringIndex > 0) {
+    scoringIndex -= 1;
+    renderScoringScreen();
+  }
+});
+
+document.getElementById("scoring-next-btn").addEventListener("click", () => {
+  if (!players[scoringIndex].name.trim()) {
+    players[scoringIndex].name = `Player ${scoringIndex + 1}`;
+  }
+  if (scoringIndex < playerCount - 1) {
+    scoringIndex += 1;
+    renderScoringScreen();
+  } else {
+    renderPlayersScreen();
+    showScreen("players");
+  }
+});
+
+// ---------- Screen 3: player list ----------
+function weakestSkill(player) {
+  let weakest = SKILLS[0];
+  SKILLS.forEach(skill => {
+    if (player.scores[skill.id] < player.scores[weakest.id]) weakest = skill;
+  });
+  return weakest;
+}
+
+function renderPlayersScreen() {
+  const grid = document.getElementById("player-grid");
+  grid.innerHTML = "";
+  players.forEach((player, idx) => {
+    const weak = weakestSkill(player);
+    const card = document.createElement("button");
+    card.type = "button";
+    card.className = "player-card";
+    card.innerHTML = `
+      <h3>${player.name}</h3>
+      <div class="weak-note">Weakest skill: ${weak.icon} ${weak.name} (${player.scores[weak.id]}/10)</div>
+    `;
+    card.addEventListener("click", () => {
+      selectedPlayerIndex = idx;
+      renderWorkScreen();
+      showScreen("work");
+    });
+    grid.appendChild(card);
+  });
+}
+
+// ---------- Screen 4: pick a skill ----------
+function renderWorkScreen() {
+  const player = players[selectedPlayerIndex];
+  const weak = weakestSkill(player);
+
+  document.getElementById("suggestion-skill-name").textContent = `${weak.icon} ${weak.name}`;
+  document.getElementById("suggestion-player-name").textContent = player.name;
+  document.getElementById("work-sub").textContent = `${player.name}'s current skill ratings, lowest to highest.`;
+
+  document.getElementById("suggestion-drill-btn").onclick = () => {
+    activeSkillId = weak.id;
+    lastDrillIndex = -1;
+    renderDrillScreen();
+    showScreen("drill");
+  };
+
+  const sorted = [...SKILLS].sort((a, b) => player.scores[a.id] - player.scores[b.id]);
+  const grid = document.getElementById("work-skill-grid");
+  grid.innerHTML = "";
+  sorted.forEach(skill => {
+    const card = document.createElement("button");
+    card.type = "button";
+    card.className = "skill-card";
+    card.innerHTML = `
+      <span class="skill-icon">${skill.icon}</span>
+      <h4>${skill.name}</h4>
+      <div class="skill-score-tag">Rated ${player.scores[skill.id]}/10</div>
+    `;
+    card.addEventListener("click", () => {
+      activeSkillId = skill.id;
+      lastDrillIndex = -1;
+      renderDrillScreen();
+      showScreen("drill");
+    });
+    grid.appendChild(card);
+  });
+}
+
+document.getElementById("work-back-btn").addEventListener("click", () => {
+  renderPlayersScreen();
+  showScreen("players");
+});
+
+// ---------- Screen 5: drill ----------
+function renderDrillScreen() {
+  const skill = SKILLS.find(s => s.id === activeSkillId);
+  const player = players[selectedPlayerIndex];
+
+  document.getElementById("drill-title").textContent = `${skill.icon} ${skill.name} Drill for ${player.name}`;
+  document.getElementById("drill-sub").textContent = skill.description;
+
+  let idx;
+  if (skill.drills.length === 1) {
+    idx = 0;
+  } else {
+    do {
+      idx = Math.floor(Math.random() * skill.drills.length);
+    } while (idx === lastDrillIndex);
+  }
+  lastDrillIndex = idx;
+  const drill = skill.drills[idx];
+
+  const holder = document.getElementById("drill-card-holder");
+  const difficultyClass = `difficulty-${drill.difficulty.toLowerCase()}`;
+  holder.innerHTML = `
+    <div class="drill-card">
+      <div class="drill-card-header">
+        <h3>${drill.name}</h3>
+        <span class="difficulty ${difficultyClass}">${drill.difficulty}</span>
+      </div>
+      <p class="drill-summary">${drill.summary}</p>
+      <p class="drill-instructions">${drill.instructions}</p>
+      <div class="drill-meta">
+        <span><strong>Duration:</strong> ${drill.duration}</span>
+        <span><strong>Equipment:</strong> ${drill.equipment}</span>
+      </div>
+    </div>
+  `;
+}
+
+document.getElementById("another-drill-btn").addEventListener("click", renderDrillScreen);
+
+document.getElementById("drill-back-btn").addEventListener("click", () => {
+  renderWorkScreen();
+  showScreen("work");
+});
+
+// ---------- Start over ----------
+startOverBtn.addEventListener("click", () => {
+  playerCount = 1;
+  players = [];
+  scoringIndex = 0;
+  selectedPlayerIndex = null;
+  activeSkillId = null;
+  lastDrillIndex = -1;
+  document.getElementById("player-count-input").value = 1;
+  showScreen("count");
+});
+</script>
+</body>
+</html>
