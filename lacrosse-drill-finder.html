@@ -108,16 +108,33 @@ input[type="number"], input[type="text"] {
 .btn-row { display: flex; gap: 0.75rem; margin-top: 1.5rem; flex-wrap: wrap; }
 .progress-note { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem; }
 
+.choice-grid { display: flex; gap: 0.6rem; flex-wrap: wrap; margin-bottom: 1.25rem; }
+.choice-btn {
+  border: 1px solid var(--border);
+  background: var(--card-bg);
+  border-radius: 999px;
+  padding: 0.5rem 1.1rem;
+  cursor: pointer;
+  font-size: 0.88rem;
+  color: var(--text);
+  font: inherit;
+}
+.choice-btn:hover { border-color: var(--orange); }
+.choice-btn.selected { background: var(--orange); border-color: var(--orange); color: #fff; font-weight: 600; }
+.hint-text { font-size: 0.85rem; color: var(--text-muted); margin: -0.75rem 0 1.25rem; }
+
+.skill-score-group { padding: 0.7rem 0; border-bottom: 1px solid var(--border); }
+.skill-score-group:last-child { border-bottom: none; }
+.skill-score-heading { font-weight: 600; font-size: 0.92rem; display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; }
 .skill-score-row {
   display: grid;
   grid-template-columns: 1.7fr 3fr 2.2rem;
   align-items: center;
   gap: 0.9rem;
-  padding: 0.6rem 0;
-  border-bottom: 1px solid var(--border);
+  padding: 0.3rem 0;
 }
-.skill-score-row:last-child { border-bottom: none; }
 .skill-score-name { display: flex; align-items: center; gap: 0.5rem; font-weight: 600; font-size: 0.92rem; }
+.skill-score-hand-label { font-size: 0.85rem; color: var(--text-muted); padding-left: 1.6rem; }
 .skill-score-value { text-align: right; font-weight: 700; color: var(--orange-dark); }
 input[type="range"] { width: 100%; accent-color: var(--orange); }
 
@@ -180,6 +197,40 @@ input[type="range"] { width: 100%; accent-color: var(--orange); }
 .skill-card .skill-icon { font-size: 1.6rem; display: block; margin-bottom: 0.4rem; }
 .skill-card h4 { margin: 0 0 0.25rem; font-size: 0.98rem; }
 .skill-card .skill-score-tag { font-size: 0.78rem; color: var(--text-muted); }
+.skill-card-static {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.1rem;
+  box-shadow: var(--shadow);
+  color: var(--text);
+}
+.hand-pill-row { display: flex; gap: 0.5rem; margin-top: 0.6rem; }
+.hand-pill {
+  flex: 1;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  border-radius: 8px;
+  padding: 0.4rem 0.5rem;
+  font-size: 0.76rem;
+  cursor: pointer;
+  color: var(--text);
+  text-align: center;
+  font: inherit;
+}
+.hand-pill:hover { border-color: var(--orange); color: var(--orange-dark); }
+.drill-hand-note {
+  background: #fff3d9;
+  color: #9a6a00;
+  border-radius: 8px;
+  padding: 0.6rem 0.9rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+}
+@media (prefers-color-scheme: dark) {
+  .drill-hand-note { background: #3a2f10; color: #f0c565; }
+}
 
 .drill-card {
   background: var(--card-bg);
@@ -242,8 +293,15 @@ input[type="range"] { width: 100%; accent-color: var(--orange); }
         <p class="progress-note" id="scoring-progress"></p>
         <h2 class="section-title" id="scoring-title"></h2>
         <label class="field-label" for="player-name-input">Player name (optional)</label>
-        <input type="text" id="player-name-input" placeholder="e.g. Jordan" />
-        <div id="skill-score-list" style="margin-top: 1.25rem;"></div>
+        <input type="text" id="player-name-input" placeholder="e.g. Jordan" style="margin-bottom: 1.25rem;" />
+
+        <label class="field-label">Position</label>
+        <div id="position-grid" class="choice-grid"></div>
+
+        <label class="field-label">Dominant hand</label>
+        <div id="hand-grid" class="choice-grid"></div>
+
+        <div id="skill-score-list" style="margin-top: 0.5rem;"></div>
         <div class="btn-row">
           <button class="btn secondary" id="scoring-back-btn" type="button">Previous</button>
           <button class="btn" id="scoring-next-btn" type="button">Next</button>
@@ -361,13 +419,39 @@ const SKILLS = [
     ]}
 ];
 
+const POSITIONS = [
+  { id: "attack", name: "Attack", icon: "⚔️", skills: ["passing", "catching", "shooting", "dodging", "cradling", "ground-balls", "agility", "iq"] },
+  { id: "midfield", name: "Midfield", icon: "🔄", skills: ["passing", "catching", "shooting", "dodging", "cradling", "ground-balls", "defense", "agility", "iq"] },
+  { id: "defense", name: "Defense", icon: "🛡️", skills: ["passing", "catching", "cradling", "ground-balls", "defense", "agility", "iq"] },
+  { id: "goalie", name: "Goalie", icon: "🥅", skills: ["passing", "catching", "ground-balls", "agility", "iq"] },
+  { id: "faceoff", name: "Faceoff / FOGO", icon: "🤺", skills: ["face-offs", "ground-balls", "cradling", "dodging", "agility", "iq"] },
+];
+
+// Skills that involve stick-handling and get a separate dominant-hand / off-hand rating.
+const HANDED_SKILLS = new Set(["passing", "catching", "shooting", "dodging", "cradling"]);
+
 // ---------- State ----------
 let playerCount = 1;
-let players = [];       // { name, scores: { skillId: number } }
+let players = [];       // { name, position, dominantHand, scores: { skillId: number, "skillId:dominant"/"skillId:off": number } }
 let scoringIndex = 0;
 let selectedPlayerIndex = null;
 let activeSkillId = null;
+let activeHand = null;  // null | "dominant" | "off"
 let lastDrillIndex = -1;
+
+function positionOf(player) {
+  return POSITIONS.find(p => p.id === player.position);
+}
+
+function skillsForPlayer(player) {
+  const pos = positionOf(player);
+  if (!pos) return [];
+  return pos.skills.map(id => SKILLS.find(s => s.id === id)).filter(Boolean);
+}
+
+function otherHand(hand) {
+  return hand === "right" ? "left" : "right";
+}
 
 // ---------- Elements ----------
 const screens = {
@@ -391,7 +475,7 @@ document.getElementById("count-continue-btn").addEventListener("click", () => {
   const input = document.getElementById("player-count-input");
   const n = parseInt(input.value, 10);
   playerCount = Number.isFinite(n) && n > 0 ? Math.min(n, 30) : 1;
-  players = Array.from({ length: playerCount }, () => ({ name: "", scores: {} }));
+  players = Array.from({ length: playerCount }, () => ({ name: "", position: null, dominantHand: null, scores: {} }));
   scoringIndex = 0;
   renderScoringScreen();
   showScreen("scoring");
@@ -404,31 +488,96 @@ function renderScoringScreen() {
   document.getElementById("scoring-title").textContent = "Rate each skill from 1 (needs work) to 10 (elite)";
   document.getElementById("player-name-input").value = player.name;
 
+  // Position picker
+  const posGrid = document.getElementById("position-grid");
+  posGrid.innerHTML = "";
+  POSITIONS.forEach(pos => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "choice-btn" + (player.position === pos.id ? " selected" : "");
+    btn.textContent = `${pos.icon} ${pos.name}`;
+    btn.addEventListener("click", () => {
+      player.position = pos.id;
+      renderScoringScreen();
+    });
+    posGrid.appendChild(btn);
+  });
+
+  // Dominant hand picker
+  const handGrid = document.getElementById("hand-grid");
+  handGrid.innerHTML = "";
+  [["right", "Right"], ["left", "Left"]].forEach(([id, label]) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "choice-btn" + (player.dominantHand === id ? " selected" : "");
+    btn.textContent = label;
+    btn.addEventListener("click", () => {
+      player.dominantHand = id;
+      renderScoringScreen();
+    });
+    handGrid.appendChild(btn);
+  });
+
+  // Skill sliders (depends on position + dominant hand being chosen)
   const list = document.getElementById("skill-score-list");
   list.innerHTML = "";
-  SKILLS.forEach(skill => {
-    if (player.scores[skill.id] === undefined) player.scores[skill.id] = 5;
-    const row = document.createElement("div");
-    row.className = "skill-score-row";
-    row.innerHTML = `
-      <div class="skill-score-name">${skill.icon} ${skill.name}</div>
-      <input type="range" min="1" max="10" step="1" value="${player.scores[skill.id]}" data-skill="${skill.id}" />
-      <div class="skill-score-value" data-skill-value="${skill.id}">${player.scores[skill.id]}</div>
-    `;
-    list.appendChild(row);
-  });
-  list.querySelectorAll('input[type="range"]').forEach(input => {
-    input.addEventListener("input", () => {
-      const skillId = input.dataset.skill;
-      player.scores[skillId] = parseInt(input.value, 10);
-      list.querySelector(`[data-skill-value="${skillId}"]`).textContent = input.value;
+  if (!player.position || !player.dominantHand) {
+    const hint = document.createElement("p");
+    hint.className = "hint-text";
+    hint.textContent = "Choose a position and dominant hand above to rate this player's skills.";
+    list.appendChild(hint);
+  } else {
+    skillsForPlayer(player).forEach(skill => {
+      const group = document.createElement("div");
+      group.className = "skill-score-group";
+
+      if (HANDED_SKILLS.has(skill.id)) {
+        const domKey = `${skill.id}:dominant`;
+        const offKey = `${skill.id}:off`;
+        if (player.scores[domKey] === undefined) player.scores[domKey] = 5;
+        if (player.scores[offKey] === undefined) player.scores[offKey] = 5;
+        const domHandLabel = player.dominantHand === "right" ? "Right" : "Left";
+        const offHandLabel = player.dominantHand === "right" ? "Left" : "Right";
+        group.innerHTML = `
+          <div class="skill-score-heading">${skill.icon} ${skill.name}</div>
+          <div class="skill-score-row">
+            <div class="skill-score-hand-label">Dominant hand (${domHandLabel})</div>
+            <input type="range" min="1" max="10" step="1" value="${player.scores[domKey]}" data-skill="${domKey}" />
+            <div class="skill-score-value" data-skill-value="${domKey}">${player.scores[domKey]}</div>
+          </div>
+          <div class="skill-score-row">
+            <div class="skill-score-hand-label">Off hand (${offHandLabel})</div>
+            <input type="range" min="1" max="10" step="1" value="${player.scores[offKey]}" data-skill="${offKey}" />
+            <div class="skill-score-value" data-skill-value="${offKey}">${player.scores[offKey]}</div>
+          </div>
+        `;
+      } else {
+        if (player.scores[skill.id] === undefined) player.scores[skill.id] = 5;
+        group.innerHTML = `
+          <div class="skill-score-row">
+            <div class="skill-score-name">${skill.icon} ${skill.name}</div>
+            <input type="range" min="1" max="10" step="1" value="${player.scores[skill.id]}" data-skill="${skill.id}" />
+            <div class="skill-score-value" data-skill-value="${skill.id}">${player.scores[skill.id]}</div>
+          </div>
+        `;
+      }
+      list.appendChild(group);
     });
-  });
+
+    list.querySelectorAll('input[type="range"]').forEach(input => {
+      input.addEventListener("input", () => {
+        const key = input.dataset.skill;
+        player.scores[key] = parseInt(input.value, 10);
+        list.querySelector(`[data-skill-value="${key}"]`).textContent = input.value;
+      });
+    });
+  }
 
   const backBtn = document.getElementById("scoring-back-btn");
   const nextBtn = document.getElementById("scoring-next-btn");
   backBtn.disabled = scoringIndex === 0;
   nextBtn.textContent = scoringIndex === playerCount - 1 ? "Finish Setup" : "Next Player";
+  nextBtn.disabled = !player.position || !player.dominantHand;
 }
 
 document.getElementById("player-name-input").addEventListener("input", (e) => {
@@ -456,25 +605,40 @@ document.getElementById("scoring-next-btn").addEventListener("click", () => {
 });
 
 // ---------- Screen 3: player list ----------
-function weakestSkill(player) {
-  let weakest = SKILLS[0];
-  SKILLS.forEach(skill => {
-    if (player.scores[skill.id] < player.scores[weakest.id]) weakest = skill;
+// Returns { skill, hand, score, label } for the player's single lowest-rated skill/hand combo.
+function findWeakest(player) {
+  let best = null;
+  skillsForPlayer(player).forEach(skill => {
+    if (HANDED_SKILLS.has(skill.id)) {
+      [["dominant", player.dominantHand], ["off", otherHand(player.dominantHand)]].forEach(([hand, handName]) => {
+        const score = player.scores[`${skill.id}:${hand}`];
+        if (!best || score < best.score) {
+          best = { skill, hand, score, label: `${skill.name} (${hand === "dominant" ? "Dominant" : "Off"} Hand)` };
+        }
+      });
+    } else {
+      const score = player.scores[skill.id];
+      if (!best || score < best.score) {
+        best = { skill, hand: null, score, label: skill.name };
+      }
+    }
   });
-  return weakest;
+  return best;
 }
 
 function renderPlayersScreen() {
   const grid = document.getElementById("player-grid");
   grid.innerHTML = "";
   players.forEach((player, idx) => {
-    const weak = weakestSkill(player);
+    const weak = findWeakest(player);
+    const pos = positionOf(player);
     const card = document.createElement("button");
     card.type = "button";
     card.className = "player-card";
     card.innerHTML = `
       <h3>${player.name}</h3>
-      <div class="weak-note">Weakest skill: ${weak.icon} ${weak.name} (${player.scores[weak.id]}/10)</div>
+      <div class="weak-note">${pos.icon} ${pos.name} &middot; ${player.dominantHand === "right" ? "Right" : "Left"}-handed</div>
+      <div class="weak-note">Weakest: ${weak.skill.icon} ${weak.label} (${weak.score}/10)</div>
     `;
     card.addEventListener("click", () => {
       selectedPlayerIndex = idx;
@@ -486,40 +650,65 @@ function renderPlayersScreen() {
 }
 
 // ---------- Screen 4: pick a skill ----------
+function goToDrill(skillId, hand) {
+  activeSkillId = skillId;
+  activeHand = hand;
+  lastDrillIndex = -1;
+  renderDrillScreen();
+  showScreen("drill");
+}
+
 function renderWorkScreen() {
   const player = players[selectedPlayerIndex];
-  const weak = weakestSkill(player);
+  const pos = positionOf(player);
+  const weak = findWeakest(player);
 
-  document.getElementById("suggestion-skill-name").textContent = `${weak.icon} ${weak.name}`;
+  document.getElementById("suggestion-skill-name").textContent = `${weak.skill.icon} ${weak.label}`;
   document.getElementById("suggestion-player-name").textContent = player.name;
-  document.getElementById("work-sub").textContent = `${player.name}'s current skill ratings, lowest to highest.`;
+  document.getElementById("work-sub").textContent = `${player.name}'s (${pos.name}) current skill ratings, lowest to highest.`;
 
-  document.getElementById("suggestion-drill-btn").onclick = () => {
-    activeSkillId = weak.id;
-    lastDrillIndex = -1;
-    renderDrillScreen();
-    showScreen("drill");
-  };
+  document.getElementById("suggestion-drill-btn").onclick = () => goToDrill(weak.skill.id, weak.hand);
 
-  const sorted = [...SKILLS].sort((a, b) => player.scores[a.id] - player.scores[b.id]);
+  const skills = skillsForPlayer(player);
+  const minScore = skill => HANDED_SKILLS.has(skill.id)
+    ? Math.min(player.scores[`${skill.id}:dominant`], player.scores[`${skill.id}:off`])
+    : player.scores[skill.id];
+  const sorted = [...skills].sort((a, b) => minScore(a) - minScore(b));
+
   const grid = document.getElementById("work-skill-grid");
   grid.innerHTML = "";
   sorted.forEach(skill => {
-    const card = document.createElement("button");
-    card.type = "button";
-    card.className = "skill-card";
-    card.innerHTML = `
-      <span class="skill-icon">${skill.icon}</span>
-      <h4>${skill.name}</h4>
-      <div class="skill-score-tag">Rated ${player.scores[skill.id]}/10</div>
-    `;
-    card.addEventListener("click", () => {
-      activeSkillId = skill.id;
-      lastDrillIndex = -1;
-      renderDrillScreen();
-      showScreen("drill");
-    });
-    grid.appendChild(card);
+    if (HANDED_SKILLS.has(skill.id)) {
+      const domScore = player.scores[`${skill.id}:dominant`];
+      const offScore = player.scores[`${skill.id}:off`];
+      const domHandLabel = player.dominantHand === "right" ? "Right" : "Left";
+      const offHandLabel = player.dominantHand === "right" ? "Left" : "Right";
+      const card = document.createElement("div");
+      card.className = "skill-card-static";
+      card.innerHTML = `
+        <span class="skill-icon">${skill.icon}</span>
+        <h4>${skill.name}</h4>
+        <div class="hand-pill-row">
+          <button type="button" class="hand-pill" data-hand="dominant">${domHandLabel} (dominant): ${domScore}/10</button>
+          <button type="button" class="hand-pill" data-hand="off">${offHandLabel} (off hand): ${offScore}/10</button>
+        </div>
+      `;
+      card.querySelectorAll(".hand-pill").forEach(btn => {
+        btn.addEventListener("click", () => goToDrill(skill.id, btn.dataset.hand));
+      });
+      grid.appendChild(card);
+    } else {
+      const card = document.createElement("button");
+      card.type = "button";
+      card.className = "skill-card";
+      card.innerHTML = `
+        <span class="skill-icon">${skill.icon}</span>
+        <h4>${skill.name}</h4>
+        <div class="skill-score-tag">Rated ${player.scores[skill.id]}/10</div>
+      `;
+      card.addEventListener("click", () => goToDrill(skill.id, null));
+      grid.appendChild(card);
+    }
   });
 }
 
@@ -549,7 +738,13 @@ function renderDrillScreen() {
 
   const holder = document.getElementById("drill-card-holder");
   const difficultyClass = `difficulty-${drill.difficulty.toLowerCase()}`;
+  const handNote = activeHand === "off"
+    ? `<div class="drill-hand-note">✋ Focus this rep on your off hand (${otherHand(player.dominantHand) === "right" ? "Right" : "Left"}).</div>`
+    : activeHand === "dominant"
+      ? `<div class="drill-hand-note">✋ Focus this rep on your dominant hand (${player.dominantHand === "right" ? "Right" : "Left"}).</div>`
+      : "";
   holder.innerHTML = `
+    ${handNote}
     <div class="drill-card">
       <div class="drill-card-header">
         <h3>${drill.name}</h3>
@@ -579,6 +774,7 @@ startOverBtn.addEventListener("click", () => {
   scoringIndex = 0;
   selectedPlayerIndex = null;
   activeSkillId = null;
+  activeHand = null;
   lastDrillIndex = -1;
   document.getElementById("player-count-input").value = 1;
   showScreen("count");
