@@ -411,8 +411,7 @@ input[type="file"] {
 
         <div id="skill-score-list" style="margin-top: 0.5rem;"></div>
         <div class="btn-row">
-          <button class="btn secondary" id="scoring-back-btn" type="button">Previous</button>
-          <button class="btn" id="scoring-next-btn" type="button">Next</button>
+          <button class="btn" id="scoring-next-btn" type="button">Finish Setup</button>
         </div>
       </div>
     </section>
@@ -723,11 +722,7 @@ function renderScoringScreen() {
     });
   }
 
-  const backBtn = document.getElementById("scoring-back-btn");
-  const nextBtn = document.getElementById("scoring-next-btn");
-  backBtn.disabled = scoringIndex === 0;
-  nextBtn.textContent = scoringIndex === playerCount - 1 ? "Finish Setup" : "Next Player";
-  nextBtn.disabled = !player.position || !player.dominantHand;
+  document.getElementById("scoring-next-btn").disabled = !player.position || !player.dominantHand;
 
   updateAnalyzeButtonState();
 }
@@ -736,26 +731,12 @@ document.getElementById("player-name-input").addEventListener("input", (e) => {
   players[scoringIndex].name = e.target.value;
 });
 
-document.getElementById("scoring-back-btn").addEventListener("click", () => {
-  if (scoringIndex > 0) {
-    scoringIndex -= 1;
-    resetHighlightUpload();
-    renderScoringScreen();
-  }
-});
-
 document.getElementById("scoring-next-btn").addEventListener("click", () => {
   if (!players[scoringIndex].name.trim()) {
-    players[scoringIndex].name = `Player ${scoringIndex + 1}`;
+    players[scoringIndex].name = "Player 1";
   }
-  if (scoringIndex < playerCount - 1) {
-    scoringIndex += 1;
-    resetHighlightUpload();
-    renderScoringScreen();
-  } else {
-    renderPlayersScreen();
-    showScreen("players");
-  }
+  renderPlayersScreen();
+  showScreen("players");
 });
 
 // ---------- Highlight reel scoring ----------
