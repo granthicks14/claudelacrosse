@@ -374,28 +374,14 @@ input[type="file"] {
           <p class="tagline">Score your players. Find their drills.</p>
         </div>
       </div>
-      <button id="start-over-btn" class="start-over-btn" type="button" hidden>Start Over</button>
+      <button id="start-over-btn" class="start-over-btn" type="button">Start Over</button>
     </div>
   </header>
 
   <main>
-    <!-- Screen 1: how many players -->
-    <section id="screen-count" class="screen active">
+    <!-- Screen 2: score the player's skills -->
+    <section id="screen-scoring" class="screen active">
       <div class="card-box">
-        <h2 class="section-title">How many players are training today?</h2>
-        <p class="section-sub">Enter the number of players you'll be scoring and finding drills for.</p>
-        <label class="field-label" for="player-count-input">Number of players</label>
-        <input type="number" id="player-count-input" min="1" max="30" value="1" />
-        <div class="btn-row">
-          <button class="btn" id="count-continue-btn" type="button">Continue</button>
-        </div>
-      </div>
-    </section>
-
-    <!-- Screen 2: score each player's skills -->
-    <section id="screen-scoring" class="screen">
-      <div class="card-box">
-        <p class="progress-note" id="scoring-progress"></p>
         <h2 class="section-title" id="scoring-title"></h2>
         <label class="field-label" for="player-name-input">Player name (optional)</label>
         <input type="text" id="player-name-input" placeholder="e.g. Jordan" style="margin-bottom: 1.25rem;" />
@@ -616,7 +602,6 @@ function otherHand(hand) {
 
 // ---------- Elements ----------
 const screens = {
-  count: document.getElementById("screen-count"),
   scoring: document.getElementById("screen-scoring"),
   players: document.getElementById("screen-players"),
   work: document.getElementById("screen-work"),
@@ -627,25 +612,21 @@ const startOverBtn = document.getElementById("start-over-btn");
 function showScreen(name) {
   Object.values(screens).forEach(s => s.classList.remove("active"));
   screens[name].classList.add("active");
-  startOverBtn.hidden = name === "count";
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
-// ---------- Screen 1: player count ----------
-document.getElementById("count-continue-btn").addEventListener("click", () => {
-  const input = document.getElementById("player-count-input");
-  const n = parseInt(input.value, 10);
-  playerCount = Number.isFinite(n) && n > 0 ? Math.min(n, 30) : 1;
-  players = Array.from({ length: playerCount }, () => ({ name: "", position: null, dominantHand: null, scores: {}, aiMeta: {} }));
+function startFreshPlayer() {
+  playerCount = 1;
+  players = [{ name: "", position: null, dominantHand: null, scores: {}, aiMeta: {} }];
   scoringIndex = 0;
+  resetHighlightUpload();
   renderScoringScreen();
   showScreen("scoring");
-});
+}
 
 // ---------- Screen 2: scoring ----------
 function renderScoringScreen() {
   const player = players[scoringIndex];
-  document.getElementById("scoring-progress").textContent = `Player ${scoringIndex + 1} of ${playerCount}`;
   document.getElementById("scoring-title").textContent = "Rate each skill from 1 (needs work) to 10 (elite)";
   document.getElementById("player-name-input").value = player.name;
 
@@ -1423,16 +1404,15 @@ async function getAiFeedback() {
 // ---------- Start over ----------
 startOverBtn.addEventListener("click", () => {
   resetRecordingUI();
-  playerCount = 1;
-  players = [];
-  scoringIndex = 0;
   selectedPlayerIndex = null;
   activeSkillId = null;
   activeHand = null;
   lastDrillIndex = -1;
-  document.getElementById("player-count-input").value = 1;
-  showScreen("count");
+  startFreshPlayer();
 });
+
+// ---------- Init ----------
+startFreshPlayer();
 </script>
 </body>
 </html>
